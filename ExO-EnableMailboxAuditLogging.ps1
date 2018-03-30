@@ -1,8 +1,247 @@
-﻿$ch_env = Get-ChildItem env:
+﻿<#
+.SYNOPSIS
+    Enabling mailbox audit log on all Exchange Online mailboxes. Designed for execution in Azure Automation
 
-if (!($ch_env.AUTOMATION_ASSET_ACCOUNTID))
+.DESCRIPTION
+    This script enables audit logging for all mailboxes in the connected Exchange Online tenant.
+
+    The audit log level can be configured to either 'full' or 'default' for all tree logon types (Administrator, Delegate, Owner).
+
+    The audit log age can be set as well.
+
+    This script will only work in a Azure Automation runbook.
+
+.PARAMETER AuditLogLevel
+    Defining the audit log level of all three logon types (Administrator, Delegate, Owner) for all mailboxes to process.
+
+    Only two valid inputs; 'Default' and 'Full'.
+
+    'Default': The default audit log setting on mailbox creation.
+
+    'Full': All possible actions are logged.
+
+    List of actions to be audit logged: https://technet.microsoft.com/en-us/library/ff459237(v=exchg.160).aspx.
+
+    Default value: 'Default'.
+
+.PARAMETER AuditLogAgeLimit
+    The AuditLogAgeLimit parameter specifies the maximum age (in days) of audit log entries for the mailbox.
+
+    Log entries older than the specified value are removed.
+
+    Default value: 90.
+
+.PARAMETER AutomationPSCredentialName
+    The name of the Automation Credential used to connect to Exchange Online.
+
+    The Account should at least have "Audit Log" rights in the Exchange Online tenant.
+
+.INPUTS
+    N/A
+
+.OUTPUTS
+    N/A
+
+.NOTES
+    Version:        1.0
+    Author:         Soren Greenfort Lindevang
+    Creation Date:  30.03.2018
+    Purpose/Change: Initial script development
+  
+.EXAMPLE
+    Enable Audit Logging on all mailboxes, at default logging level and default log age limit (90 days)
+    ExO-EnableMailboxAuditLogging -AutomationPSCredentialName 'ExchangeServiceAccount'
+    
+.EXAMPLE
+    Enable Audit Logging on all mailboxes, at full logging level and custom log age limit (180 days)
+    ExO-EnableMailboxAuditLogging -AuditLogAgeLimit "Full" -AuditLogLevel 180 -AutomationPSCredentialName 'ExchangeServiceAccount'
+
+.EXAMPLE
+    Enable Audit Logging on all mailboxes, at full logging level and custom log age limit (365 days). Will force a change to all mailboxes
+    ExO-EnableMailboxAuditLogging -AuditLogAgeLimit "Full" -AuditLogLevel 365 -AutomationPSCredentialName 'ExchangeServiceAccount' -ForceUpdate
+#>
+[cmdletbinding()]
+param (
+    [Parameter(Mandatory=$true)]
+        [ValidateSet("Default","Full")]
+        [string]
+        $AuditLogLevel = "Default",
+
+    [Parameter(Mandatory=$true)]
+        [int]
+        $AuditLogAgeLimit = 90,
+  
+    [Parameter(
+        Mandatory=$true)]
+        [string]
+        $AutomationPSCredentialName,
+
+    [Parameter(
+        Mandatory=$false)]
+        [switch]
+        $ForceUpdate    
+)
+
+#-----------------------------------------------------------[Functions]------------------------------------------------------------
+
+# Test if script is running in Azure Automation
+function Test-AzureAutomationEnvironment
     {
-    Write "This script is not executed in Azure Automation."
+    if ($env:AUTOMATION_ASSET_ACCOUNTID)
+        {
+        Write-Verbose "This script is executed in Azure Automation"
+        }
+    else
+        {
+        $ErrorMessage = "This script is NOT executed in Azure Automation."
+        throw $ErrorMessage
+        }
     }
 
-$ch_env.AUTOMATION_ASSET_ACCOUNTID
+# Connect to Exchange Online 
+function Connect-ExchangeOnline 
+    {
+    param ($Creds)
+    try
+        {
+        Write-Output "Connecting to Exchange Online"
+        Get-PSSession | Remove-PSSession       
+        $Session = New-PSSession –ConfigurationName Microsoft.Exchange -ConnectionUri https://outlook.office365.com/powershell-liveid/ -Credential $Creds `
+            -Authentication Basic -AllowRedirection
+        $Commands = @("Set-Mailbox","Get-Mailbox")
+        Import-PSSession -Session $Session -DisableNameChecking:$true -AllowClobber:$true -CommandName $Commands | Out-Null
+        }
+    catch 
+        {
+        Write-Error -Message $_.Exception
+        throw $_.Exception
+        }
+    Write-Verbose "Successfully connected to Exchange Online"
+    }
+
+# Disconnect to Exchange Online 
+function Disconnect-ExchangeOnline 
+    {
+    try
+        {
+        Write-Output "Disconnecting from Exchange Online"
+        Get-PSSession | Remove-PSSession       
+        }
+    catch 
+        {
+        Write-Error -Message $_.Exception
+        throw $_.Exception
+        }
+    Write-Verbose "Successfully disconnected from Exchange Online"
+    }
+
+#----------------------------------------------------------[Declarations]----------------------------------------------------------
+
+if ($AuditLogLevel -eq "Default")
+    {
+    $AuditOwner = "UpdateFolderPermissions"
+    $AuditAdmin = "Create","FolderBind","HardDelete","Move","MoveToDeletedItems","SendAs","SendOnBehalf","SoftDelete","Update","UpdateFolderPermissions"
+    $AuditDelegate = "Create","HardDelete","SendAs","SoftDelete","Update","UpdateFolderPermissions"
+    }
+elseif ($AuditLogLevel -eq "Full")
+    {
+    $AuditOwner = "Create","HardDelete","MailboxLogin","Move","MoveToDeletedItems","SoftDelete","Update","UpdateFolderPermissions"
+    $AuditAdmin = "Copy","Create","FolderBind","HardDelete","MessageBind","Move","MoveToDeletedItems","SendAs","SendOnBehalf","SoftDelete","Update","UpdateFolderPermissions"
+    $AuditDelegate = "Create","FolderBind","HardDelete","Move","MoveToDeletedItems","SendAs","SendOnBehalf","SoftDelete","Update","UpdateFolderPermissions"
+    }
+
+#-----------------------------------------------------------[Execution]-----------------------------------------------------------
+
+Test-AzureAutomationEnvironment
+
+Write-Output "::: Parameters :::"
+Write-Output "AuditLogAgeLimit: $AuditLogAgeLimit"
+Write-Output "AuditLogLevel: $AuditLogLevel"
+Write-Output "ForceUpdate: $ForceUpdate"
+Write-Output "AutomationPSCredentialName: $AutomationPSCredentialName"
+Write-Output ""
+
+# Get AutomationPSCredential
+Write-Output "::: Connection :::"
+try
+    {
+    Write-Output "Importing Automation Credential"
+    $Credentials = Get-AutomationPSCredential -Name $AutomationPSCredentialName -ErrorAction Stop
+    }
+catch 
+    {
+    Write-Error -Message $_.Exception
+    throw $_.Exception
+    }
+Write-Verbose "Successfully imported credentials"
+
+# Connect to Exchange Online
+Connect-ExchangeOnline -Creds $Credentials
+Write-Output ""
+
+# Get All Mailboxes (UserMailbox, SharedMailbox, EquipmentMailbox, RoomMailbox)
+try
+    {
+    Write-Verbose "Importing list of mailboxes"
+    $Mailboxes = Get-Mailbox -RecipientTypeDetails UserMailbox,SharedMailbox,EquipmentMailbox,RoomMailbox -ErrorAction Stop
+    }
+catch 
+    {
+    Write-Error -Message $_.Exception
+    throw $_.Exception
+    }
+Write-Verbose "Successfully imported list of mailboxes"
+
+if (!$Mailboxes)
+    {
+    $ErrorMessage = "No mailboxes found!"
+    throw $ErrorMessage
+    }
+
+# Filter mailboxes in scope for processing
+$LogAgeTimeSpan = New-TimeSpan -Days $AuditLogAgeLimit
+if ($ForceUpdate)
+    {
+    $MailboxesToProcess = $Mailboxes
+    }
+else
+    {
+    try
+        {
+        Write-Verbose "Filtering mailboxes in scope for processing"
+        $MailboxesToProcess = $Mailboxes | Where-Object {($_.AuditLogAgeLimit -ne $LogAgeTimeSpan) -or (Compare-Object $_.AuditOwner $AuditOwner) -or `
+            (Compare-Object $_.AuditAdmin $AuditAdmin) -or (Compare-Object $_.AuditDelegate $AuditDelegate)}
+        }
+    catch 
+        {
+        Write-Error -Message $_.Exception
+        throw $_.Exception
+        }
+    Write-Verbose "Successfully filtered mailboxes"
+    }
+
+#Process Mailboxes
+Write-Output "::: Process Mailboxes :::"
+Write-Output "Mailboxes to process: $($MailboxesToProcess.count)"
+$count = $null
+Foreach ($Mailbox in $MailboxesToProcess)
+    {
+    try
+        {
+        $count++
+        Write-Verbose "Mailbox: $count/$($MailboxesToProcess.count) - $($Mailbox.UserPrincipalName)"
+        Set-Mailbox $Mailbox.UserPrincipalName -AuditEnabled $true -AuditOwner $AuditOwner -AuditAdmin $AuditAdmin -AuditDelegate $AuditDelegate `
+            -AuditLogAgeLimit $AuditLogAgeLimit -ErrorAction Stop
+        }
+    catch 
+        {
+        Write-Error -Message $_.Exception
+        }
+    }
+Write-Verbose "Processing completed"
+Write-Output ""
+
+# Close Session
+Disconnect-ExchangeOnline
+
+Write-Output "Script completed"
