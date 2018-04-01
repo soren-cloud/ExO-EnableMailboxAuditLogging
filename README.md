@@ -15,9 +15,11 @@ This script was developed as part of a blog [article] on [soren.cloud].
 
 ## Prerequisites
 * Enable Office 365 Audit logging (if not already enabled)
- * How to: [Link to guide]
+
+    How to: [Link to guide]
 * Create Exchange Online Service Account
- * Must at least have global "Audit Log" rights
+
+    Must at least have global "Audit Log" rights
 
 ## Usage
 Copy the content of the script into a Azure Automation PowerShell Runbook. Then test and deploy (schedule) :-)
