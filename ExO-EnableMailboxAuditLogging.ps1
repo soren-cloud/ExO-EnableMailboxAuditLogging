@@ -2,6 +2,8 @@
 .SYNOPSIS
     Enabling mailbox audit log on all Exchange Online mailboxes. Designed for execution in Azure Automation
 
+    No warranties. Use at your own risk.
+
 .DESCRIPTION
     This script enables audit logging for all mailboxes in the connected Exchange Online tenant.
 
@@ -12,7 +14,7 @@
     This script will only work in a Azure Automation runbook.
 
 .PARAMETER AuditLogLevel
-    Defining the audit log level of all three logon types (Administrator, Delegate, Owner) for all mailboxes to process.
+    Audit log level of all three logon types (Administrator, Delegate, Owner) to be set on all mailboxes.
 
     Only two valid inputs; 'Default' and 'Full'.
 
@@ -25,16 +27,17 @@
     Default value: 'Default'.
 
 .PARAMETER AuditLogAgeLimit
-    The AuditLogAgeLimit parameter specifies the maximum age (in days) of audit log entries for the mailbox.
-
-    Log entries older than the specified value are removed.
+    Determines how long audit log entries will be retained (in days) on all mailboxes
 
     Default value: 90.
 
 .PARAMETER AutomationPSCredentialName
-    The name of the Automation Credential used to connect to Exchange Online.
+    Name of the Automation Credential used when connecting to Exchange Online.
 
     The Account should at least have "Audit Log" rights in the Exchange Online tenant.
+
+.PARAMETER ForceUpdate
+    If this switch is present, the script will force a 'Set' command, regardless of whether the log settings match the desired settings or not.
 
 .INPUTS
     N/A
@@ -62,24 +65,22 @@
 #>
 [cmdletbinding()]
 param (
-    [Parameter(Mandatory=$true)]
+    [Parameter(
+        Mandatory=$true)]
         [ValidateSet("Default","Full")]
-        [string]
-        $AuditLogLevel = "Default",
+        [string]$AuditLogLevel = "Default",
 
-    [Parameter(Mandatory=$true)]
-        [int]
-        $AuditLogAgeLimit = 90,
+    [Parameter(
+        Mandatory=$true)]
+        [int]$AuditLogAgeLimit = 90,
   
     [Parameter(
         Mandatory=$true)]
-        [string]
-        $AutomationPSCredentialName,
+        [string]$AutomationPSCredentialName,
 
     [Parameter(
         Mandatory=$false)]
-        [switch]
-        $ForceUpdate    
+        [switch]$ForceUpdate    
 )
 
 #-----------------------------------------------------------[Functions]------------------------------------------------------------
@@ -179,6 +180,9 @@ Write-Verbose "Successfully imported credentials"
 Connect-ExchangeOnline -Creds $Credentials
 Write-Output ""
 
+# Check if all Cmdlets are available
+
+
 # Get All Mailboxes (UserMailbox, SharedMailbox, EquipmentMailbox, RoomMailbox)
 try
     {
@@ -230,8 +234,8 @@ Foreach ($Mailbox in $MailboxesToProcess)
         {
         $count++
         Write-Verbose "Mailbox: $count/$($MailboxesToProcess.count) - $($Mailbox.UserPrincipalName)"
-        Set-Mailbox $Mailbox.UserPrincipalName -AuditEnabled $true -AuditOwner $AuditOwner -AuditAdmin $AuditAdmin -AuditDelegate $AuditDelegate `
-            -AuditLogAgeLimit $AuditLogAgeLimit -ErrorAction Stop
+        $Mailbox | Set-Mailbox -AuditEnabled $true -AuditOwner $AuditOwner -AuditAdmin $AuditAdmin -AuditDelegate $AuditDelegate `
+            -AuditLogAgeLimit $AuditLogAgeLimit -Force
         }
     catch 
         {
