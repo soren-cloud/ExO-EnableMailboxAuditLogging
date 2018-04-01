@@ -187,7 +187,7 @@ Write-Output ""
 try
     {
     Write-Verbose "Importing list of mailboxes"
-    $Mailboxes = Get-Mailbox -RecipientTypeDetails UserMailbox,SharedMailbox,EquipmentMailbox,RoomMailbox -ErrorAction Stop
+    $Mailboxes = Get-Mailbox -RecipientTypeDetails UserMailbox,SharedMailbox,EquipmentMailbox,RoomMailbox,DiscoveryMailbox -ErrorAction Stop
     }
 catch 
     {
