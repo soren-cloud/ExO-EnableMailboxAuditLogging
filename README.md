@@ -4,7 +4,7 @@ Script for Azure Automation to enable and configure audit logging on all mailbox
 
 This script was developed as part of a blog [article] on [soren.cloud].
 
-*Note: This script is designed for execution in a Azure Automation runbook!*
+*Note: This script is designed for execution in an Azure Automation runbook!*
 
 
 ## Requirements
