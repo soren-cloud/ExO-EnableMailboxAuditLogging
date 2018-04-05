@@ -1,4 +1,20 @@
-﻿<#
+﻿<#PSScriptInfo
+.VERSION 1.0
+.GUID 911b3916-2a11-4e53-977b-3992fc89d977
+.AUTHOR Soren Lindevang
+.COMPANYNAME
+.COPYRIGHT
+.TAGS PowerShell Exchange Online Office 365 Logging Logs Audit Auditing Azure Automation
+.LICENSEURI
+.PROJECTURI
+.ICONURI
+.EXTERNALMODULEDEPENDENCIES
+.REQUIREDSCRIPTS
+.EXTERNALSCRIPTDEPENDENCIES
+.RELEASENOTES
+#>
+
+<#
 .SYNOPSIS
     Enabling mailbox audit log on all Exchange Online mailboxes. Designed for execution in Azure Automation
 
@@ -9,9 +25,11 @@
 
     The audit log level can be configured to either 'full' or 'default' for all tree logon types (Administrator, Delegate, Owner).
 
-    The audit log age can be set as well.
+    Audit log age can be set as well.
 
-    This script will only work in a Azure Automation runbook.
+    This script will only work in an Azure Automation runbook.
+
+    Check out the GitHub Repo: https://github.com/soren-cloud/ExO-EnableMailboxAuditLogging
 
 .PARAMETER AuditLogLevel
     Audit log level of all three logon types (Administrator, Delegate, Owner) to be set on all mailboxes.
