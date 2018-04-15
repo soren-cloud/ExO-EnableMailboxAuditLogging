@@ -120,14 +120,13 @@ function Test-AzureAutomationEnvironment
 # Connect to Exchange Online 
 function Connect-ExchangeOnline 
     {
-    param ($Creds)
+    param ($Credential,$Commands)
     try
         {
         Write-Output "Connecting to Exchange Online"
         Get-PSSession | Remove-PSSession       
-        $Session = New-PSSession –ConfigurationName Microsoft.Exchange -ConnectionUri https://outlook.office365.com/powershell-liveid/ -Credential $Creds `
+        $Session = New-PSSession –ConfigurationName Microsoft.Exchange -ConnectionUri https://outlook.office365.com/powershell-liveid/ -Credential $Credential `
             -Authentication Basic -AllowRedirection
-        $Commands = @("Set-Mailbox","Get-Mailbox")
         Import-PSSession -Session $Session -DisableNameChecking:$true -AllowClobber:$true -CommandName $Commands | Out-Null
         }
     catch 
@@ -195,11 +194,8 @@ catch
 Write-Verbose "Successfully imported credentials"
 
 # Connect to Exchange Online
-Connect-ExchangeOnline -Creds $Credentials
+Connect-ExchangeOnline -Credential $Credentials -Commands "Set-Mailbox","Get-Mailbox"
 Write-Output ""
-
-# Check if all Cmdlets are available
-
 
 # Get All Mailboxes (UserMailbox, SharedMailbox, EquipmentMailbox, RoomMailbox)
 try
