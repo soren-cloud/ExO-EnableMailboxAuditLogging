@@ -31,6 +31,7 @@ Copy the content of the script into a Azure Automation PowerShell Runbook. Then 
 * **-AuditLogAgeLimit**, Determines how long audit log entries will be retained (in days) on all mailboxes. Default value is 90.
 * **-AutomationPSCredentialName**, Name of the Automation Credential used when connecting to Exchange Online.
 * **-ForceUpdate**, If this switch is present, the script will force a 'Set' command, regardless of whether the log settings match the desired settings or not.
+* **-EnableVerbose**, If this switch is present, 'VerbosePreference' will be set to "Continue" in the script.
 
 ## Examples
 *Remember: This script is designed for execution in a Azure Automation runbook!*
@@ -44,7 +45,7 @@ Enable mailbox auditing on all mailboxes, retain default level logs in 90 days, 
 Enable mailbox auditing on all mailboxes, retain full level logs in 180 days, and connect with service account 'Exchange Online Service Account'. Force an update.
 
 ## More Information
-Article: <http://soren.cloud/>
+Article: <http://soren.cloud/o365-secure-score-azure-automation-enable-mailbox-auditing/>
 
 
 ## Credits

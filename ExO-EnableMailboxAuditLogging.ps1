@@ -1,5 +1,5 @@
 ﻿<#PSScriptInfo
-.VERSION 1.0
+.VERSION 1.0.1
 .GUID 911b3916-2a11-4e53-977b-3992fc89d977
 .AUTHOR Soren Lindevang
 .COMPANYNAME
@@ -57,6 +57,16 @@
 .PARAMETER ForceUpdate
     If this switch is present, the script will force a 'Set' command, regardless of whether the log settings match the desired settings or not.
 
+.PARAMETER EnableVerbose 
+     If this switch is present, 'VerbosePreference' will be set to "Continue" in the script.
+     
+     Build-in Verbose switch is not supported by Azure Automation (yet).
+     
+     Example 1: true
+     Example 2: false
+
+     Default value = false
+
 .INPUTS
     N/A
 
@@ -64,6 +74,13 @@
     N/A
 
 .NOTES
+    Version:        1.0.1
+    Author:         Soren Greenfort Lindevang
+    Creation Date:  15.05.2018
+    Purpose/Change: - Added 'EnableVerbose' switch 
+                    - Improved error handling
+                    - Improved output formatting
+
     Version:        1.0
     Author:         Soren Greenfort Lindevang
     Creation Date:  30.03.2018
@@ -98,7 +115,11 @@ param (
 
     [Parameter(
         Mandatory=$false)]
-        [switch]$ForceUpdate    
+        [switch]$ForceUpdate,
+
+    [Parameter(
+        Mandatory=$false)]
+        [switch]$EnableVerbose    
 )
 
 #-----------------------------------------------------------[Functions]------------------------------------------------------------
@@ -113,7 +134,7 @@ function Test-AzureAutomationEnvironment
     else
         {
         $ErrorMessage = "This script is NOT executed in Azure Automation."
-        throw $ErrorMessage
+        Stop-AutomationScript -Status Failed
         }
     }
 
@@ -132,7 +153,7 @@ function Connect-ExchangeOnline
     catch 
         {
         Write-Error -Message $_.Exception
-        throw $_.Exception
+        Stop-AutomationScript -Status Failed
         }
     Write-Verbose "Successfully connected to Exchange Online"
     }
@@ -148,9 +169,30 @@ function Disconnect-ExchangeOnline
     catch 
         {
         Write-Error -Message $_.Exception
-        throw $_.Exception
+        Stop-AutomationScript -Status Failed
         }
     Write-Verbose "Successfully disconnected from Exchange Online"
+    }
+
+# Stop Automation Script
+function Stop-AutomationScript
+    {
+    param(
+        [ValidateSet("Failed","Success")]
+        [string]
+        $Status = "Success"
+        )
+    Write-Output ""
+    Disconnect-ExchangeOnline
+    if ($Status -eq "Success")
+        {
+        Write-Output "Script successfully completed"
+        }
+    elseif ($Status -eq "Failed")
+        {
+        Write-Output "Script stopped with an Error"
+        }
+    Break
     }
 
 #----------------------------------------------------------[Declarations]----------------------------------------------------------
@@ -173,11 +215,18 @@ elseif ($AuditLogLevel -eq "Full")
 Test-AzureAutomationEnvironment
 
 Write-Output "::: Parameters :::"
-Write-Output "AuditLogAgeLimit: $AuditLogAgeLimit"
-Write-Output "AuditLogLevel: $AuditLogLevel"
-Write-Output "ForceUpdate: $ForceUpdate"
+Write-Output "AuditLogAgeLimit:           $AuditLogAgeLimit"
+Write-Output "AuditLogLevel:              $AuditLogLevel"
+Write-Output "ForceUpdate:                $ForceUpdate"
 Write-Output "AutomationPSCredentialName: $AutomationPSCredentialName"
+Write-Output "EnableVerbose:              $EnableVerbose"
 Write-Output ""
+
+# Handle Verbose Preference
+if ($EnableVerbose -eq $true)
+    {
+    $VerbosePreference = "Continue"
+    }
 
 # Get AutomationPSCredential
 Write-Output "::: Connection :::"
@@ -189,7 +238,7 @@ try
 catch 
     {
     Write-Error -Message $_.Exception
-    throw $_.Exception
+    Stop-AutomationScript -Status Failed
     }
 Write-Verbose "Successfully imported credentials"
 
@@ -197,6 +246,7 @@ Write-Verbose "Successfully imported credentials"
 Connect-ExchangeOnline -Credential $Credentials -Commands "Set-Mailbox","Get-Mailbox"
 Write-Output ""
 
+Write-Verbose "::: Import Mailboxes :::"
 # Get All Mailboxes (UserMailbox, SharedMailbox, EquipmentMailbox, RoomMailbox)
 try
     {
@@ -206,14 +256,14 @@ try
 catch 
     {
     Write-Error -Message $_.Exception
-    throw $_.Exception
+    Stop-AutomationScript -Status Failed
     }
 Write-Verbose "Successfully imported list of mailboxes"
 
 if (!$Mailboxes)
     {
     $ErrorMessage = "No mailboxes found!"
-    throw $ErrorMessage
+    Stop-AutomationScript -Status Failed
     }
 
 # Filter mailboxes in scope for processing
@@ -233,10 +283,11 @@ else
     catch 
         {
         Write-Error -Message $_.Exception
-        throw $_.Exception
+        Stop-AutomationScript -Status Failed
         }
     Write-Verbose "Successfully filtered mailboxes"
     }
+Write-Verbose ""
 
 #Process Mailboxes
 Write-Output "::: Process Mailboxes :::"
@@ -257,9 +308,5 @@ Foreach ($Mailbox in $MailboxesToProcess)
         }
     }
 Write-Verbose "Processing completed"
-Write-Output ""
 
-# Close Session
-Disconnect-ExchangeOnline
-
-Write-Output "Script completed"
+Stop-AutomationScript -Status Success
