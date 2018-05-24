@@ -1,5 +1,5 @@
 ﻿<#PSScriptInfo
-.VERSION 1.0.1
+.VERSION 1.0.2
 .GUID 911b3916-2a11-4e53-977b-3992fc89d977
 .AUTHOR Soren Lindevang
 .COMPANYNAME
@@ -74,6 +74,11 @@
     N/A
 
 .NOTES
+    Version:        1.0.2
+    Author:         Soren Greenfort Lindevang
+    Creation Date:  24.05.2018
+    Purpose/Change: - Set-Mailbox command changed from Pipeline input to $Mailbox.Identity (thx hestmo)
+
     Version:        1.0.1
     Author:         Soren Greenfort Lindevang
     Creation Date:  15.05.2018
@@ -299,7 +304,7 @@ Foreach ($Mailbox in $MailboxesToProcess)
         {
         $count++
         Write-Verbose "Mailbox: $count/$($MailboxesToProcess.count) - $($Mailbox.UserPrincipalName)"
-        $Mailbox | Set-Mailbox -AuditEnabled $true -AuditOwner $AuditOwner -AuditAdmin $AuditAdmin -AuditDelegate $AuditDelegate `
+        Set-Mailbox -Identity $Mailbox.UserPrincipalName -AuditEnabled $true -AuditOwner $AuditOwner -AuditAdmin $AuditAdmin -AuditDelegate $AuditDelegate `
             -AuditLogAgeLimit $AuditLogAgeLimit -Force
         }
     catch 
